@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>午餐吃什麼</title>
+<style>
+body{
+  font-family:sans-serif;
+  background:#f1f2f6;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:20px
+}
+h2{margin-top:20px}
+.wheel-container{
+  position:relative;
+  width:min(90vw,360px);
+  height:min(90vw,360px);
+  margin:30px 0;
+  border-radius:50%;
+  overflow:hidden;
+  box-shadow:0 10px 30px rgba(0,0,0,.15)
+}
+canvas{
+  width:100%;
+  height:100%;
+  transition:transform 4s cubic-bezier(.15,0,.15,1)
+}
+.pointer{
+  position:absolute;
+  top:-10px;
+  left:50%;
+  transform:translateX(-50%);
+  width:30px;
+  height:40px;
+  background:#ff4757;
+  clip-path:polygon(50% 100%,0 0,100% 0);
+  z-index:10
+}
+button{
+  background:#ff4757;
+  color:white;
+  border:none;
+  padding:12px 40px;
+  font-size:1.1rem;
+  border-radius:25px;
+  cursor:pointer;
+  font-weight:bold
+}
+button:disabled{opacity:.6}
+#result-card{
+  margin-top:20px;
+  background:white;
+  padding:20px;
+  border-radius:16px;
+  display:none;
+  width:90%;
+  max-width:360px;
+  text-align:center;
+  box-shadow:0 5px 20px rgba(0,0,0,.1)
+}
+#res-img{
+  width:100%;
+  border-radius:12px;
+  margin-top:10px
+}
+#rating{
+  color:#f1c40f;
+  font-weight:bold
+}
+#distance{
+  color:#57606f;
+  font-size:.9rem
+}
+#res-link{
+  display:inline-block;
+  margin-top:15px;
+  padding:10px 20px;
+  border-radius:6px;
+  border:1px solid #1e90ff;
+  color:#1e90ff;
+  text-decoration:none;
+  font-weight:bold
+}
+</style>
+</head>
+<body>
+
+<h2>🍴 午餐決定器</h2>
+
+<div class="wheel-container">
+  <div class="pointer"></div>
+  <canvas id="wheelCanvas"></canvas>
+</div>
+
+<button id="spinBtn">尋找附近餐廳</button>
+
+<div id="result-card">
+  <h3 id="res-name"></h3>
+  <div id="rating"></div>
+  <div id="distance"></div>
+  <p id="res-addr"></p>
+  <img id="res-img">
+  <a id="res-link" target="_blank">在 Google Map 查看 →</a>
+</div>
+
+<script>
+const canvas=document.getElementById("wheelCanvas");
+const ctx=canvas.getContext("2d");
+const spinBtn=document.getElementById("spinBtn");
+
+let allVenues=[];
+let venues=[];
+let rotation=0;
+let lastFetch=0;
+
+spinBtn.onclick=start;
+
+function start(){
+  spinBtn.disabled=true;
+  spinBtn.innerText="搜尋中...";
+
+  navigator.geolocation.getCurrentPosition(
+    pos=>fetchVenues(pos.coords.latitude,pos.coords.longitude),
+    ()=>{ alert("需要定位權限"); spinBtn.disabled=false; spinBtn.innerText="尋找附近餐廳"; }
+  );
+}
+
+async function fetchVenues(lat,lng){
+  const now=Date.now();
+  if(allVenues.length>0 && now-lastFetch<300000){
+    prepareWheel();
+    return;
+  }
+
+  try{
+    const res=await fetch(`/api/restaurants?lat=${lat}&lng=${lng}`);
+    const data=await res.json();
+    allVenues=data.results;
+    lastFetch=now;
+    prepareWheel();
+  }catch(e){
+    alert("API讀取失敗");
+    spinBtn.disabled=false;
+    spinBtn.innerText="尋找附近餐廳";
+  }
+}
+
+function prepareWheel(){
+  venues=shuffle(allVenues).slice(0,8);
+  drawWheel();
+  spinWheel();
+}
+
+function drawWheel(){
+  const size=360;
+  canvas.width=size;
+  canvas.height=size;
+  const arc=(2*Math.PI)/venues.length;
+
+  venues.forEach((v,i)=>{
+    ctx.fillStyle=i%2?"#2f3542":"#ff4757";
+    ctx.beginPath();
+    ctx.moveTo(size/2,size/2);
+    ctx.arc(size/2,size/2,size/2,i*arc,(i+1)*arc);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(size/2,size/2);
+    ctx.rotate(i*arc+arc/2);
+    ctx.fillStyle="white";
+    ctx.font="bold 14px Arial";
+    ctx.textAlign="right";
+    ctx.fillText(v.name.substring(0,8),size/2-10,5);
+    ctx.restore();
+  });
+}
+
+function spinWheel(){
+  rotation+=Math.random()*360+1800;
+  canvas.style.transform=`rotate(${rotation}deg)`;
+
+  setTimeout(()=>{
+    const index=Math.floor(
+      (360-(rotation%360))/(360/venues.length)
+    )%venues.length;
+    showResult(venues[index]);
+    spinBtn.disabled=false;
+    spinBtn.innerText="再轉一次";
+  },4000);
+}
+
+function showResult(v){
+  document.getElementById("result-card").style.display="block";
+  document.getElementById("res-name").innerText=v.name;
+  document.getElementById("rating").innerText=v.rating?`⭐ ${v.rating}`:"";
+  document.getElementById("distance").innerText=v.distance?`📏 ${v.distance}m`:"";
+  const addr=v.location?.formatted_address||"";
+  document.getElementById("res-addr").innerText=addr;
+
+  if(v.photos && v.photos.length>0){
+    const p=v.photos[0];
+    const url=`${p.prefix}300x200${p.suffix}`;
+    document.getElementById("res-img").src=url;
+  }
+
+  const q=encodeURIComponent(v.name+" "+addr);
+  document.getElementById("res-link").href=`https://www.google.com/maps/search/?api=1&query=${q}`;
+}
+
+function shuffle(arr){
+  return arr.map(v=>({v,sort:Math.random()}))
+            .sort((a,b)=>a.sort-b.sort)
+            .map(({v})=>v);
+}
+</script>
+
+</body>
+</html>
