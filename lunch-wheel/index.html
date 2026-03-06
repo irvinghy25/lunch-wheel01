@@ -4,217 +4,370 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>午餐吃什麼</title>
+
 <style>
+
+:root{
+--primary:#ff4757;
+--dark:#2f3542;
+}
+
 body{
-  font-family:sans-serif;
-  background:#f1f2f6;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  padding:20px
+font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+background:#f1f2f6;
+display:flex;
+flex-direction:column;
+align-items:center;
+padding:20px;
 }
-h2{margin-top:20px}
+
+h2{
+margin-top:10px;
+}
+
 .wheel-container{
-  position:relative;
-  width:min(90vw,360px);
-  height:min(90vw,360px);
-  margin:30px 0;
-  border-radius:50%;
-  overflow:hidden;
-  box-shadow:0 10px 30px rgba(0,0,0,.15)
+position:relative;
+width:min(90vw,360px);
+height:min(90vw,360px);
+margin:30px 0;
+border-radius:50%;
+overflow:hidden;
+box-shadow:0 10px 30px rgba(0,0,0,.15);
+border:6px solid white; 
 }
+
 canvas{
-  width:100%;
-  height:100%;
-  transition:transform 4s cubic-bezier(.15,0,.15,1)
+width:100%;
+height:100%;
+transition:transform 4s cubic-bezier(.15,0,.15,1);
 }
+
 .pointer{
-  position:absolute;
-  top:-10px;
-  left:50%;
-  transform:translateX(-50%);
-  width:30px;
-  height:40px;
-  background:#ff4757;
-  clip-path:polygon(50% 100%,0 0,100% 0);
-  z-index:10
+position:absolute;
+top:-10px;
+left:50%;
+transform:translateX(-50%);
+width:30px;
+height:40px;
+background:var(--primary);
+clip-path:polygon(50% 100%,0 0,100% 0);
+z-index:10;
 }
+
 button{
-  background:#ff4757;
-  color:white;
-  border:none;
-  padding:12px 40px;
-  font-size:1.1rem;
-  border-radius:25px;
-  cursor:pointer;
-  font-weight:bold
+background:var(--primary);
+color:white;
+border:none;
+padding:12px 40px;
+font-size:1.1rem;
+border-radius:25px;
+cursor:pointer;
+font-weight:bold;
 }
-button:disabled{opacity:.6}
+
+button:active{
+transform:scale(.95);
+}
+
+button:disabled{
+opacity:.6;
+cursor:wait;
+}
+
 #result-card{
-  margin-top:20px;
-  background:white;
-  padding:20px;
-  border-radius:16px;
-  display:none;
-  width:90%;
-  max-width:360px;
-  text-align:center;
-  box-shadow:0 5px 20px rgba(0,0,0,.1)
+margin-top:20px;
+background:white;
+padding:20px;
+border-radius:16px;
+display:none;
+width:90%;
+max-width:360px;
+text-align:center;
+box-shadow:0 5px 20px rgba(0,0,0,.1);
 }
+
 #res-img{
-  width:100%;
-  border-radius:12px;
-  margin-top:10px
+width:100%;
+height:200px;
+object-fit:cover;
+border-radius:12px;
+margin:10px 0;
 }
+
 #rating{
-  color:#f1c40f;
-  font-weight:bold
+color:#f1c40f;
+font-weight:bold;
 }
+
 #distance{
-  color:#57606f;
-  font-size:.9rem
+color:#57606f;
+font-size:.9rem;
+margin-bottom:10px;
 }
+
 #res-link{
-  display:inline-block;
-  margin-top:15px;
-  padding:10px 20px;
-  border-radius:6px;
-  border:1px solid #1e90ff;
-  color:#1e90ff;
-  text-decoration:none;
-  font-weight:bold
+display:inline-block;
+margin-top:15px;
+padding:10px 20px;
+border-radius:8px;
+background:#1e90ff;
+color:white;
+text-decoration:none;
+font-weight:bold;
 }
+
 </style>
 </head>
+
 <body>
 
 <h2>🍴 午餐決定器</h2>
 
 <div class="wheel-container">
-  <div class="pointer"></div>
-  <canvas id="wheelCanvas"></canvas>
+<div class="pointer"></div>
+<canvas id="wheelCanvas"></canvas>
 </div>
 
 <button id="spinBtn">尋找附近餐廳</button>
 
 <div id="result-card">
-  <h3 id="res-name"></h3>
-  <div id="rating"></div>
-  <div id="distance"></div>
-  <p id="res-addr"></p>
-  <img id="res-img">
-  <a id="res-link" target="_blank">在 Google Map 查看 →</a>
+
+<h3 id="res-name"></h3>
+
+<div id="rating"></div>
+
+<div id="distance"></div>
+
+<p id="res-addr" style="font-size:.9rem;color:#747d8c;"></p>
+
+<img id="res-img">
+
+<a id="res-link" target="_blank">Google Map 導航 →</a>
+
 </div>
 
 <script>
-const canvas=document.getElementById("wheelCanvas");
-const ctx=canvas.getContext("2d");
-const spinBtn=document.getElementById("spinBtn");
 
-let allVenues=[];
-let venues=[];
-let rotation=0;
-let lastFetch=0;
+const canvas=document.getElementById("wheelCanvas")
+const ctx=canvas.getContext("2d")
+const spinBtn=document.getElementById("spinBtn")
 
-spinBtn.onclick=start;
+let allVenues=[]
+let venues=[]
+let used=[]
+let rotation=0
+let lastFetch=0
 
-function start(){
-  spinBtn.disabled=true;
-  spinBtn.innerText="搜尋中...";
+spinBtn.onclick=()=>{
 
-  navigator.geolocation.getCurrentPosition(
-    pos=>fetchVenues(pos.coords.latitude,pos.coords.longitude),
-    ()=>{ alert("需要定位權限"); spinBtn.disabled=false; spinBtn.innerText="尋找附近餐廳"; }
-  );
+spinBtn.disabled=true
+spinBtn.innerText="搜尋中..."
+
+navigator.geolocation.getCurrentPosition(
+
+pos=>fetchVenues(pos.coords.latitude,pos.coords.longitude),
+
+()=>{
+
+alert("請開啟定位權限")
+spinBtn.disabled=false
+spinBtn.innerText="尋找附近餐廳"
+
+}
+
+)
+
 }
 
 async function fetchVenues(lat,lng){
-  const now=Date.now();
-  if(allVenues.length>0 && now-lastFetch<300000){
-    prepareWheel();
-    return;
-  }
 
-  try{
-    const res=await fetch(`/api/restaurants?lat=${lat}&lng=${lng}`);
-    const data=await res.json();
-    allVenues=data.results;
-    lastFetch=now;
-    prepareWheel();
-  }catch(e){
-    alert("API讀取失敗");
-    spinBtn.disabled=false;
-    spinBtn.innerText="尋找附近餐廳";
-  }
+const now=Date.now()
+
+if(allVenues.length>0 && now-lastFetch<300000){
+
+prepareWheel()
+return
+
+}
+
+try{
+
+const res=await fetch(`/api/restaurants?lat=${lat}&lng=${lng}`)
+
+const data=await res.json()
+
+allVenues=data?.results || []
+
+lastFetch=now
+
+prepareWheel()
+
+}
+
+catch(e){
+
+alert("API讀取失敗")
+
+spinBtn.disabled=false
+
+}
+
 }
 
 function prepareWheel(){
-  venues=shuffle(allVenues).slice(0,8);
-  drawWheel();
-  spinWheel();
+
+if(allVenues.length<2){
+
+alert("附近餐廳不足")
+
+spinBtn.disabled=false
+
+return
+
+}
+
+let pool=allVenues.filter(v=>!used.includes(v.fsq_id))
+
+if(pool.length<8){
+
+used=[]
+pool=allVenues
+
+}
+
+venues=shuffle(pool).slice(0,8)
+
+drawWheel()
+
+spinWheel()
+
 }
 
 function drawWheel(){
-  const size=360;
-  canvas.width=size;
-  canvas.height=size;
-  const arc=(2*Math.PI)/venues.length;
 
-  venues.forEach((v,i)=>{
-    ctx.fillStyle=i%2?"#2f3542":"#ff4757";
-    ctx.beginPath();
-    ctx.moveTo(size/2,size/2);
-    ctx.arc(size/2,size/2,size/2,i*arc,(i+1)*arc);
-    ctx.fill();
-    ctx.save();
-    ctx.translate(size/2,size/2);
-    ctx.rotate(i*arc+arc/2);
-    ctx.fillStyle="white";
-    ctx.font="bold 14px Arial";
-    ctx.textAlign="right";
-    ctx.fillText(v.name.substring(0,8),size/2-10,5);
-    ctx.restore();
-  });
+const size=360
+const dpr=window.devicePixelRatio||1
+
+canvas.width=size*dpr
+canvas.height=size*dpr
+
+ctx.scale(dpr,dpr)
+
+const arc=(2*Math.PI)/venues.length
+
+venues.forEach((v,i)=>{
+
+ctx.fillStyle=i%2?"#2f3542":"#ff4757"
+
+ctx.beginPath()
+
+ctx.moveTo(size/2,size/2)
+
+ctx.arc(size/2,size/2,size/2,i*arc,(i+1)*arc)
+
+ctx.fill()
+
+ctx.save()
+
+ctx.translate(size/2,size/2)
+
+ctx.rotate(i*arc+arc/2)
+
+ctx.fillStyle="white"
+
+ctx.font="bold 14px Arial"
+
+ctx.textAlign="right"
+
+ctx.fillText(v.name.substring(0,8),size/2-15,5)
+
+ctx.restore()
+
+})
+
 }
 
 function spinWheel(){
-  rotation+=Math.random()*360+1800;
-  canvas.style.transform=`rotate(${rotation}deg)`;
 
-  setTimeout(()=>{
-    const index=Math.floor(
-      (360-(rotation%360))/(360/venues.length)
-    )%venues.length;
-    showResult(venues[index]);
-    spinBtn.disabled=false;
-    spinBtn.innerText="再轉一次";
-  },4000);
+rotation+=Math.random()*360+1800
+
+canvas.style.transform=`rotate(${rotation}deg)`
+
+setTimeout(()=>{
+
+const index=Math.floor((360-(rotation%360))/(360/venues.length))%venues.length
+
+const result=venues[index]
+
+used.push(result.fsq_id)
+
+showResult(result)
+
+spinBtn.disabled=false
+spinBtn.innerText="再轉一次"
+
+},4000)
+
 }
 
 function showResult(v){
-  document.getElementById("result-card").style.display="block";
-  document.getElementById("res-name").innerText=v.name;
-  document.getElementById("rating").innerText=v.rating?`⭐ ${v.rating}`:"";
-  document.getElementById("distance").innerText=v.distance?`📏 ${v.distance}m`:"";
-  const addr=v.location?.formatted_address||"";
-  document.getElementById("res-addr").innerText=addr;
 
-  if(v.photos && v.photos.length>0){
-    const p=v.photos[0];
-    const url=`${p.prefix}300x200${p.suffix}`;
-    document.getElementById("res-img").src=url;
-  }
+document.getElementById("result-card").style.display="block"
 
-  const q=encodeURIComponent(v.name+" "+addr);
-  document.getElementById("res-link").href=`https://www.google.com/maps/search/?api=1&query=${q}`;
+document.getElementById("res-name").innerText=v.name
+
+document.getElementById("rating").innerText=v.rating?`⭐ 評分 ${v.rating}`:"⭐ 尚無評分"
+
+document.getElementById("distance").innerText=v.distance?`📏 距離 ${v.distance}m`:""
+
+const addr=v.location?.formatted_address||v.location?.address||"地址未知"
+
+document.getElementById("res-addr").innerText=addr
+
+const img=document.getElementById("res-img")
+
+if(v.photos?.length>0){
+
+const p=v.photos[0]
+
+img.src=`${p.prefix}400x300${p.suffix}`
+
+img.style.display="block"
+
+}else{
+
+img.style.display="none"
+
+}
+
+const q=encodeURIComponent(v.name+" "+addr)
+
+document.getElementById("res-link").href=`https://www.google.com/maps/dir/?api=1&destination=${q}`
+
 }
 
 function shuffle(arr){
-  return arr.map(v=>({v,sort:Math.random()}))
-            .sort((a,b)=>a.sort-b.sort)
-            .map(({v})=>v);
+
+let a=[...arr]
+
+for(let i=a.length-1;i>0;i--){
+
+const j=Math.floor(Math.random()*(i+1))
+
+[a[i],a[j]]=[a[j],a[i]]
+
 }
+
+return a
+
+}
+
 </script>
 
 </body>
 </html>
+<!-- redeploy -->
+
+
+
+
