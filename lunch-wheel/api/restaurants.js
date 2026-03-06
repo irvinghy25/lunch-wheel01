@@ -1,38 +1,38 @@
 export default async function handler(req, res) {
 
-  const { lat, lng } = req.query || {};
+const { lat, lng } = req.query || {};
 
-  if (!lat || !lng) {
-    return res.status(400).json({ error: "Missing coordinates" });
-  }
+if (!lat || !lng) {
+return res.status(400).json({ error: "Missing coordinates" });
+}
 
-  try {
+try {
 
-    const url =
-`https://api.foursquare.com/v3/places/search?ll=${lat},${lng}&radius=3000&limit=20&categories=13065&fields=fsq_id,name,location,distance,rating,photos`;
+const url =
+`https://api.foursquare.com/v3/places/search?ll=${lat},${lng}&radius=3000&limit=50&categories=13065&fields=fsq_id,name,location,distance,rating,photos`;
 
-    const response = await fetch(url,{
-      headers:{
-        Authorization: `Bearer ${process.env.FOURSQUARE_KEY01}`,
-        Accept: "application/json"
-      }
-    });
+const response = await fetch(url,{
+headers:{
+Authorization:`Bearer ${process.env.FOURSQUARE_KEY}`,
+Accept:"application/json"
+}
+});
 
-    if (!response.ok) {
-      throw new Error(`Foursquare error ${response.status}`);
-    }
+if(!response.ok){
+throw new Error("Foursquare error "+response.status)
+}
 
-    const data = await response.json();
+const data = await response.json()
 
-    return res.status(200).json(data);
+res.status(200).json(data)
 
-  } catch (error) {
+}catch(error){
 
-    return res.status(500).json({
-      error: "Foursquare request failed",
-      detail: error.message
-    });
+res.status(500).json({
+error:"Foursquare request failed",
+detail:error.message
+})
 
-  }
+}
 
 }
