@@ -13,7 +13,7 @@ const url =
 
 const response = await fetch(url,{
 headers:{
-Authorization:`Bearer ${process.env.FOURSQUARE_KEY}`,
+Authorization:`Bearer ${process.env.FOURSQUARE_KEY01}`,
 Accept:"application/json"
 }
 });
@@ -36,3 +36,4 @@ detail:error.message
 }
 
 }
+
